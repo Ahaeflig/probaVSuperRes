@@ -2,6 +2,8 @@ Data/
 DataGenerated/
 TrainingCheckpoint/
 
+.ipynb_checkpoints
+
 *.pyc
 *~
 *.swp
