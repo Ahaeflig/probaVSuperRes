@@ -1,6 +1,7 @@
 Data/
 DataGenerated/
 TrainingCheckpoint/
+TrainingCheckpointSimple/
 
 .ipynb_checkpoints
 
