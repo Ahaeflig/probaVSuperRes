@@ -78,7 +78,7 @@ class ProbaVDataset():
         lrs = glob(scene_path + "/LR*.png")
         sm = scene_path + "/SM.png"
         hr = scene_path + "/HR.png"
-        up_lr = scene_path + "/up_LR.npy"
+        up_lr = scene_path + "/up_LR.tfrecords"
         
         return Scene(qms, lrs, sm, up_lr, hr)
     
