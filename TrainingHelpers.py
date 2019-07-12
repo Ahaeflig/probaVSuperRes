@@ -11,24 +11,6 @@ def applyMask(hr, generated):
     generated_ = tf.boolean_mask(generated, clr)
     return hr_, generated_
 
-def cMSE(hr_masked, generated_masked):
-    # calculate the bias in brightness b
-    pixel_diff = hr_masked - generated_masked
-    b = K.mean(pixel_diff)
-
-    # calculate the corrected clear mean-square error
-    pixel_diff -= b
-    cMse = K.mean(pixel_diff * pixel_diff)
-
-    return cMse
-
-
-def cMAE(hr_masked, generated_masked):
-    pixel_diff = hr_masked - generated_masked
-    b = K.mean(pixel_diff)
-    
-    pixel_diff -= b
-    return K.mean(pixel_diff)
 
 def clearMSE(hr_masked, generated_masked):
     """As defined in https://kelvins.esa.int/proba-v-super-resolution/scoring/
@@ -67,12 +49,12 @@ def train_step(lr, hr, model, optimizer):
         optimizer.apply_gradients(zip(model_gardients, model.trainable_variables))
         
         
-def show_pred(model, lrs, hr):
+def show_pred(model, lrs, hr, max_lr=35):
     predicted = model.predict(lrs)
     plt.figure(figsize=(15,15))
     
     display_list = [lrs[0][:,:,0], predicted[0][:,:,0], hr[0][:,:,0]]
-    title = ['Input Image (1 of 9)', 'Predicted Image', 'Real image']
+    title = ['Input Image (1 of ' + str(max_lr) + ')', 'Predicted Image', 'Real image']
     
     for i in range(3):
         plt.subplot(1, 3, i+1)
