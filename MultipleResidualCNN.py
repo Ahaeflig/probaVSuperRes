@@ -6,6 +6,7 @@ class MultipleResidualCNN():
     def __init__(self, channel_dim = 35):
         inputs = Input(shape=[128, 128, channel_dim])
         self.model = self.build_model(inputs)
+        self.name = "ResidualCNN"
     
     @staticmethod
     def residual_block_gen(model, kernel_size, filters, strides):

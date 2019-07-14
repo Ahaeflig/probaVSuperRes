@@ -1,9 +1,16 @@
 Data/
-DataGenerated/
+DataStandardized/
+DataNormalized/
 TrainingCheckpoint/
 TrainingCheckpointSimple/
+Result/
+Model/
 
 .ipynb_checkpoints
+
+.pickle
+
+
 
 *.pyc
 *~
