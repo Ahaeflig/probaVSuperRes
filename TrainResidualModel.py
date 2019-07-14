@@ -19,6 +19,10 @@ from MultipleResidualCNN import MultipleResidualCNN
 # Function for model training
 from TrainingHelpers import compute_loss, train_step, show_pred, save_pred
 
+""" Program to train a network for Super Resolution
+
+"""
+
 
 def main(epochs: int, learning_rate: float, batch_size: int, save_interval: int, model_path: str, verbose: bool):
     

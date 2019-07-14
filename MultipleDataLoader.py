@@ -16,18 +16,11 @@ import time
 LR_HR_RATIO = 3
 
 class MultipleDataLoader():
-    """ Class that provdes utilities to read and process TFRecords that contains multiple LR images their correpsonding HR image,
-    It also takes care of image augmentation and other processing.
-    
-    Attributes:
-        data_dir: string path to the folder containing the train/dev/test folders
+    """ Class that provdes utilities to read and process TFRecords that contains multiple LR images and their correpsonding HR image. The main point of the class is to map a tf.data.TFRecordDataset to the parse function. This will turn the TF dataset into an iterator yields Tensor ready to be fed to the model.
     """
     
     def __init__(self, data_dir: str):
-        self.train = glob(data_dir +  "train/*/*")
-        self.dev= glob(data_dir + "dev/*/*")
-        self.test = glob(data_dir + "test/*/*")
-        
+        pass
 
     @tf.function
     def parse_multiple_fixed(self, example_proto, augment=False):
@@ -53,7 +46,7 @@ class MultipleDataLoader():
         
         
     @tf.function
-    def parse_multiple_flexible(self, example_proto):
+    def parse_multiple_flexible(self, example_proto, augment=False):
         """ Parses a tf record and reconstruct the correct data from the following features:
         
             feature ={"lrs": tf.train.Feature(float_list=tf.train.FloatList(value=np.concatenate(lrs).ravel())),
@@ -73,15 +66,19 @@ class MultipleDataLoader():
         lrs_length = parsed_features['lrs_length']
         
         lrs_reshaped = tf.reshape(lrs_merged, (-1, 128,128))
+        
+        # We take 9 LRs from all stored LRs, minimum among all scenes
         lrs_reshaped = tf.random.shuffle(lrs_reshaped)[:9,:,:]
         
         lrs_reshaped = tf.transpose(lrs_reshaped, perm=[1,2,0])
         
-        #return lrs_reshaped, tf.expand_dims(parsed_features["hr"], axis=2)
-        return self.augment(lrs_reshaped, tf.expand_dims(parsed_features["hr"], axis=2))
+        if augment:
+            return self.augment(lrs_reshaped, tf.expand_dims(parsed_features["hr"], axis=2))
+        else:
+            lrs_reshaped, tf.expand_dims(parsed_features["hr"], axis=2)
         
     @tf.function
-    def augment(self, lrs, hr, augment=True):
+    def augment(self, lrs, hr):
         
         if tf.random.uniform(()) >= 0.5:
             lrs = tf.image.flip_left_right(lrs)
@@ -92,8 +89,4 @@ class MultipleDataLoader():
             hr = tf.image.flip_up_down(hr)
         
         return lrs, hr
-    
-    # TODO make test data parser...
-    def load_test_image(self, filepath):
-        return self.load_data(filepath)
-        
+            

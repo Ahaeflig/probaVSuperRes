@@ -2,6 +2,14 @@ from tensorflow.keras.layers import Conv2D, LeakyReLU, BatchNormalization, Activ
 import tensorflow as tf
 
 class MultipleResidualCNN():
+    """ Defines a DL model for Super Resolution that uses a residual blocks and an up sampling block to super resolve multiple low resolution images stacked together
+    
+    Args:
+        channel_dim: Number of LRs used
+    
+    
+    """
+    
     
     def __init__(self, channel_dim = 35):
         inputs = Input(shape=[128, 128, channel_dim])
@@ -10,6 +18,15 @@ class MultipleResidualCNN():
     
     @staticmethod
     def residual_block_gen(model, kernel_size, filters, strides):
+        """ ResNet residual block a bit modified with a LeakyReLU and no activation function after the additon
+        
+            Args:
+                model: the current model
+                kernel_size: size of the kernel used for convolutions
+                filters: last dimension of the output
+                strides: shift amount between each convolution
+        """
+        
         previous = model
 
         model = Conv2D(filters, kernel_size, strides=strides, padding='same')(model)
@@ -22,6 +39,15 @@ class MultipleResidualCNN():
     
     @staticmethod
     def up_sample_block(model, kernel_size, filters, strides):
+        """ Up Sample block based on Convolution, LeakyRelu and UpSampling2D (repeats the rows and columns)
+        
+            Args:
+                model: the current model
+                kernel_size: size of the kernel used for convolutions
+                filters: last dimension of the output
+                strides: shift amount between each convolution
+        """
+        
         model = Conv2D(filters, kernel_size, strides, padding = "same")(model)
         model = LeakyReLU(alpha = 0.2)(model)
         model = UpSampling2D(size = 3)(model)
@@ -31,12 +57,25 @@ class MultipleResidualCNN():
         return model
     
     def build_model(self, inputs):
+        """ Builds the model with all the pieces put together:
+        1) General Conv + activation
+        2) 3 Residual Block
+        3) General Conv + batch norm + skip connection
+        4) Upsample Block
+        5) Final Convulation + activation to generate HR, aka filters = 1
+        
+        Args:
+            inputs: Keras.layers.input input shape
+        
+        Returns:
+            a tf.keras.Model, the built model
+        """
         model = Conv2D(64, 9, strides=1, padding='same')(inputs)
         model = LeakyReLU(alpha = 0.2)(model)
         
         skip_connection = model
         
-        # Residual Blocks, 3 should probably be increased on faster machines
+        # Residual Blocks, 3 could probably be increased on faster machines
         for i in range(3):
             model = self.residual_block_gen(model, 3, 64, 1)
 
