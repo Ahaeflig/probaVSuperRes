@@ -11,6 +11,11 @@ Helper file with functions written to perform the optimization of a neural net.
 """
 
 
+'''
+==============================
+        CNN Helpers
+==============================
+'''
 
 def applyMask(hr, generated):
     """ Finds np.NaN values in the HR image and set those pixel to 0 (False) in hr and generated.
@@ -81,6 +86,70 @@ def train_step(lrs, hr, model, optimizer):
         optimizer.apply_gradients(zip(model_gardients, model.trainable_variables))
         
     return loss
+
+
+'''
+==============================
+        GAN Helpers
+==============================
+'''
+
+def discriminator_loss(disc_real_output, disc_generated_output):
+    real_loss = binary_loss(tf.ones_like(disc_real_output), disc_real_output)
+    generated_loss = binary_loss(tf.zeros_like(disc_generated_output), disc_generated_output)
+    total_disc_loss = real_loss + generated_loss
+
+    return total_disc_loss
+
+
+def generator_loss(disc_output, sr, hr):
+    # we try to trick the discriminator to predict our generated image to be considered as valid ([1])
+    gan_loss = binary_loss(tf.ones_like(disc_output), disc_output)
+    
+    # We also want the image to look as similar as possible to the HR images
+    hr_masked, output_masked = applyMask(hr, sr) 
+    l1_loss = clearMSE(hr_masked, output_masked) + clearMAE(hr_masked, output_masked)
+    
+    # Lambda controls how much we value each loss
+    return gan_loss + (LAMBDA * l1_loss)
+
+
+@tf.function
+def compute_loss_gan(lr, hr, generator, discriminator):
+    # Get generator output
+    sr = generator(lr, training=True)
+
+    # Get discriminator output for the real image and the super resolved image
+    disc_real_output = discriminator(hr, training=True)
+    disc_generated_output = discriminator(sr, training=True)
+
+    # Compute losses for each network using above functions
+    gen_loss = generator_loss(disc_generated_output, sr, hr)
+    disc_loss = discriminator_loss(disc_real_output, disc_generated_output)
+
+    return gen_loss, disc_loss
+
+
+@tf.function
+def train_step_gan(lr, hr, generator, discriminator, generator_optimizer, discriminator_optimizer):
+    with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+        gen_loss, disc_loss = compute_loss(lr, hr, generator, discriminator)
+        # We compute gradient for each part
+        generator_gradients = gen_tape.gradient(gen_loss, srg.generator.trainable_variables)
+        discriminator_gradients = disc_tape.gradient(disc_loss, srg.discriminator.trainable_variables)
+
+        # We apply the gradient to the variables, tf2.0 way
+        generator_optimizer.apply_gradients(zip(generator_gradients, srg.generator.trainable_variables))
+        discriminator_optimizer.apply_gradients(zip(discriminator_gradients, srg.discriminator.trainable_variables))
+        
+    return gen_loss, disc_loss
+
+
+'''
+==============================
+        Visualization
+==============================
+'''
         
 def show_pred(model, lrs, hr, max_lr=35):
     predicted = model.predict(lrs)

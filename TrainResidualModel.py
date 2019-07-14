@@ -42,7 +42,7 @@ def main(epochs: int, learning_rate: float, batch_size: int, save_interval: int,
         if verbose:
             print("Loading model from " + model_path)
         
-        model = keras.models.load_model(model_path)
+        model = keras.models.load_model(model_path, compile=False)
         # I encode the current epoch in the model file name: modelName_epoch.h5
         current_epoch = int(model_path.split("_")[1].split(".")[0])
 
@@ -73,7 +73,7 @@ def main(epochs: int, learning_rate: float, batch_size: int, save_interval: int,
         if (epoch + 1) % save_interval == 0:
             if verbose:
                 print("Saving model")
-            model.save(model_base_path + "_" + str(epoch) + ".h5")
+            model.save(model_base_path + "_" + str(epoch) + ".h5", include_optimizer=False)
 
         if (epoch + 1) % 25 == 0:
             for lrs, hr in train_dataset.take(1):
@@ -83,7 +83,7 @@ def main(epochs: int, learning_rate: float, batch_size: int, save_interval: int,
             print('epoch ' + str(epoch) + ' current train loss: ' + str(loss))
 
             
-    model.save(model_base_path + "_" + str(epoch) + ".h5")
+    model.save(model_base_path + "_" + str(epoch) + ".h5", include_optimizer=False)
     
     # could convert to tensorboard logging if time
     with open('residual_losses.pickle', 'wb') as handle:
