@@ -11,7 +11,7 @@ from skimage import io
 from tensorflow import keras
 
 # Import data loader
-from data_loader import MultipleDataLoader
+from MultipleDataLoader import MultipleDataLoader
 
 
 def get_output_name(tf_record_path):
