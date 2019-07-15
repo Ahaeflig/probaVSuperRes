@@ -18,7 +18,7 @@ python generate_tfrecords.py --data_dir $path_to_folder$
 ```bash
 python train_srcnn.py -v --epoch 1000 --learning_rate 0.0001 --batch_size 4 
 ```
-Resume training with ```--model_path $path$```
+Resume training with ```--model_path $path$``` (saved weights with keras went weird once, investigating)
 
 ### Run predictions on the test set
 
