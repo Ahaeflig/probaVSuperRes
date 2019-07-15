@@ -34,3 +34,4 @@ python predict.py $path_to_model$ --output_dir $path$
 ![resolved sample](https://neuralburst.com/content/images/2019/07/399-1.png)
 
 #### SRGAN
+adding once training is done
