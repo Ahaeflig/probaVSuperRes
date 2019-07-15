@@ -1,7 +1,7 @@
 # PROBA-V Super Resolution
 ## Multi-image Super-resolution
 
-In this repo I tackle the PROBA-V Super Resolution competition.
+My attempt at the the PROBA-V Super Resolution competition.
 
 Report [here](https://neuralburst.com/probav-super-resolution/ "Report")
 
