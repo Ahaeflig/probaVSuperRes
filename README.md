@@ -8,7 +8,7 @@ Report [here](https://neuralburst.com/probav-super-resolution/ "Report")
 ## Running the code
 
 ### Generate TFRecords
-
+Expects a folder with the [data](https://kelvins.esa.int/proba-v-super-resolution/data/ "Data") already downloaded.
 ```bash
 python generate_tfrecords.py --data_dir $path_to_folder$
 ```
