@@ -3,9 +3,7 @@
 
 In this repo I tackle the PROBA-V Super Resolution competition.
 
-Report here: https://neuralburst.com/probav-super-resolution/
-
-
+Report [here](https://neuralburst.com/probav-super-resolution/ "Report")
 
 ## Running the code
 
@@ -20,7 +18,7 @@ python generate_tfrecords.py --data_dir $path_to_folder$
 ```bash
 python train_srcnn.py -v --epoch 1000 --learning_rate 0.0001 --batch_size 4 
 ```
-Keep training with ```--model_path $path$```
+Resume training with ```--model_path $path$```
 
 ### Run predictions on the test set
 
@@ -29,7 +27,10 @@ python predict.py $path_to_model$ --output_dir $path$
 ```
 
 
-# Sample Result
+### Sample Result
 (models still training)
-SRCNN)
+
+#### SRCNN
 ![resolved sample](https://neuralburst.com/content/images/2019/07/399-1.png)
+
+#### SRGAN
