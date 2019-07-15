@@ -14,12 +14,12 @@ import pickle
 from MultipleDataLoader import MultipleDataLoader
 
 # Import model
-from SRGan import SuperResolutionGan
+from SRGAN import SuperResolutionGan
 
 # Function for model training
 from TrainingHelpers import train_step_gan, show_pred, save_pred
 
-""" Program to train a SRGAN
+""" Program to train an SRGAN model
 
 """
 

@@ -3,7 +3,6 @@ import tensorflow as tf
 from tensorflow import keras
 
 
-
 class SuperResolutionGan():
     
     def __init__(self, generator_path):

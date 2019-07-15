@@ -95,23 +95,23 @@ def train_step(lrs, hr, model, optimizer):
 '''
 
 def discriminator_loss(disc_real_output, disc_generated_output):
-    real_loss = binary_loss(tf.ones_like(disc_real_output), disc_real_output)
-    generated_loss = binary_loss(tf.zeros_like(disc_generated_output), disc_generated_output)
+    real_loss = disc_real_output
+    generated_loss =  tf.math.abs(disc_generated_output - 1.0)
     total_disc_loss = real_loss + generated_loss
 
     return total_disc_loss
 
 
-def generator_loss(disc_output, sr, hr):
+def generator_loss(disc_output, sr, hr, lambda_ = 10):
     # we try to trick the discriminator to predict our generated image to be considered as valid ([1])
-    gan_loss = binary_loss(tf.ones_like(disc_output), disc_output)
+    gan_loss = 1.0 - disc_output
     
     # We also want the image to look as similar as possible to the HR images
     hr_masked, output_masked = applyMask(hr, sr) 
-    l1_loss = clearMSE(hr_masked, output_masked) + clearMAE(hr_masked, output_masked)
+    clear_losses = clearMSE(hr_masked, output_masked) + clearMAE(hr_masked, output_masked)
     
-    # Lambda controls how much we value each loss
-    return gan_loss + (LAMBDA * l1_loss)
+    # Lambda weights how much we value each loss
+    return gan_loss + (lambda_ * clear_losses)
 
 
 @tf.function
