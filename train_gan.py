@@ -92,9 +92,9 @@ def main(epochs: int, learning_rate: float, batch_size: int, save_interval: int,
                 save_pred(model, lrs, hr, "SRGAN", epoch)
 
         if verbose:
-            print('epoch ' + str(epoch) + ' current losses: (gen / disc) ' + str(gen_loss.numpy()) + "/" + str(discr_loss.numpy())
-
+            print('epoch ' + str(epoch) + ' current losses: (gen / disc) ' + str(gen_loss.numpy()) + "/" + str(discr_loss.numpy()))
             
+                  
     model.save(model_base_path + "_" + str(epoch) + ".h5", include_optimizer=False)
     
     # could convert to tensorboard logging if time
@@ -106,7 +106,7 @@ def main(epochs: int, learning_rate: float, batch_size: int, save_interval: int,
 
         
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Train ResidualCNN with multiple inputs")
+    parser = argparse.ArgumentParser(description="Train SRGAN with multiple (LRs) inputs")
     parser.add_argument("-e", "--epoch", help="Number of epochs to train", type=int, default=1000)
     parser.add_argument("-lr", "--learning_rate", help="Learning rate", type=float, default=1e-4)
     parser.add_argument("--batch_size", help="Number of scene per batch", type=int, default=4)

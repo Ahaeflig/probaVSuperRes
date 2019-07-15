@@ -18,6 +18,8 @@ from supreshelper import *
 from typing import List
 from typing import Tuple
 
+import argparse
+
 
 def save_scene(scene_path):
     new_path = data_destination + "/" + "/".join(scene_path.split("/")[1:])
@@ -85,9 +87,8 @@ def load_and_normalize_lrs(scene_path):
     return normalized_lrs
 
 
-def main():
+def main(data_path: str):
 
-    data_path = "Data/"
     data_destination = "DataNormalized"
 
     train = glob(data_path +  "train/*/*") 
@@ -104,5 +105,7 @@ def main():
         save_scene(scene)
     
 if __name__ == '__main__':
-    
-    main()
+    parser = argparse.ArgumentParser(description="Generate TFRecords from the ProbaV Data")
+    parser.add_argument("--data_dir", help="path to the directory containing the data", type=str, default="Data/")
+    args = parser.parse_args()
+    main(args.data_dir)
