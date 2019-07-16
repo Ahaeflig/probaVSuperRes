@@ -5,6 +5,9 @@ My attempt at the the PROBA-V Super Resolution competition.
 
 Report [here](https://neuralburst.com/probav-super-resolution/ "Report")
 
+## Requirements
+Developed on tensorflow docker image: 2.0.0b1-gpu-py3-jupyter
+
 ## Running the code
 
 ### Generate TFRecords
