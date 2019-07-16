@@ -14,10 +14,10 @@ from supreshelper import *
 
 BASELINE = "baseline"
 
-""" Compute the baseline cSPVR score on the train set or on a trained model if model_path is specified
-
-"""
 def main(data_path: str, model_path: str):
+    """ Computes the baseline cSPVR score on the train set or on a trained model if model_path is specified
+
+    """
     
     # TODO make this portion reusable, data loader could handle TFRecordDataset itself
     DataLoader = MultipleDataLoader(data_path)

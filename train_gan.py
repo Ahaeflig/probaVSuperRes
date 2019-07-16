@@ -19,12 +19,18 @@ from SRGAN import SuperResolutionGan
 # Function for model training
 from TrainingHelpers import train_step_gan, show_pred, save_pred
 
-""" Program to train an SRGAN model
-
-"""
-
 
 def main(epochs: int, learning_rate: float, batch_size: int, save_interval: int, model_path: str, verbose: bool):
+    """ Program to train an SRGAN model
+
+        Args:
+            epochs: the number of epochs to train the model on
+            learning_rate: the optimizer's initial learning rate
+            batch_size: how many samples are run in parallel during forward/backward pass
+            save_interval: when to save model 
+            model_path: path to the model
+            verbose: flag to enable or disable print outputs
+    """
     
     data_dir = "DataNormalized/"
     DataLoader = MultipleDataLoader(data_dir)
