@@ -23,21 +23,22 @@ def main(data_path: str, model_path: str):
     DataLoader = MultipleDataLoader(data_path)
     train_set = glob(data_path +  "train/*/*/")
 
-    train_dataset = tf.data.TFRecordDataset(train_set + "multiple.tfrecords")
-    train_dataset = train_dataset.map(lambda x: DataLoader.parse_multiple_fixed(x, augment=True), num_parallel_calls=tf.data.experimental.AUTOTUNE) 
+    train_dataset = tf.data.TFRecordDataset(glob(data_path +  "train/*/*/multiple.tfrecords"))
+    train_dataset = train_dataset.map(lambda x: DataLoader.parse_multiple_fixed(x, augment=False))
+    train_dataset = train_dataset.batch(1)
+    
 
     if model_path == BASELINE:
         print("Super resolving with baseline")
         srs = [baseline_upscale(scene) for scene in train_set]
-
+        
     else:
         print("Super resolving with " + model_path)
         model = keras.models.load_model(model_path, compile=False)
-        srs = [model(lr) for lr,_ in train_dataset]
-        pass
+        srs = [model(lrs)[0][:,:,0].numpy() for lrs, _ in train_dataset]
     
     scores = score_images(srs, train_set)
-    print("score: " + np.mean(scores))
+    print("score: " + str(np.mean(scores)))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train ResidualCNN with multiple inputs")

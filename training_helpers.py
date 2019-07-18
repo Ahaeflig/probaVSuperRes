@@ -70,10 +70,10 @@ def clearMAE(hr_masked, generated_masked):
 
 
 @tf.function
-def compute_loss(lrs, hr, model):
-    output = model(lrs, training=True)
-    hr_masked, output_masked = applyMask(hr, output) 
-    return clearMSE(hr_masked, output_masked) + clearMAE(hr_masked, output_masked)
+def compute_loss(lrs, hr, model, training=True):
+    sr = model(lrs, training)
+    hr_masked, sr_masked = applyMask(hr, sr) 
+    return clearMSE(hr_masked, sr_masked) + clearMAE(hr_masked, sr_masked)
 
 
 @tf.function

@@ -37,9 +37,12 @@ def main(epochs: int, learning_rate: float, batch_size: int, save_interval: int,
     data_dir = "DataNormalized/"
     DataLoader = MultipleDataLoader(data_dir)
 
-    train_dataset = tf.data.TFRecordDataset(glob(data_dir +  "train/*/*/multiple.tfrecords"))
-    train_dataset = train_dataset.shuffle(len(glob(data_dir +  "train/*/*/multiple.tfrecords")))
-    train_dataset = train_dataset.map(lambda x: DataLoader.parse_multiple_fixed(x, augment=True), num_parallel_calls=tf.data.experimental.AUTOTUNE) 
+    train_files = glob(data_dir +  "train/*/*/multiple.tfrecords")
+    
+    train_dataset = tf.data.TFRecordDataset(train_files)
+    # reshuffle_each_iteration works only for the repeat operation
+    train_dataset = train_dataset.shuffle(len(train_files), reshuffle_each_iteration=True)
+    train_dataset = train_dataset.map(lambda x: DataLoader.parse_multiple_fixed(x, augment=True), num_parallel_calls=tf.data.experimental.AUTOTUNE)
     train_dataset = train_dataset.batch(batch_size)
 
     # Create a Model folder if it doesn't exist
@@ -68,39 +71,34 @@ def main(epochs: int, learning_rate: float, batch_size: int, save_interval: int,
     
     
     if verbose:
-        print("Model Training starting")
+        print("Model Training starting: " )
+        #print(len(train_dataset) )
     
     # Training
     train_losses = []
     for epoch in range(current_epoch, current_epoch + epochs):
         
-        '''
-        Temporarily predict model output because model.save appears to be broken TODO
-        '''
-        if (epoch + 1) % 30 == 0:
-            if verbose:
-                print("Predicting output")
-            predict_output(model, epoch)
-        
         loss = 0
         for lrs, hr in train_dataset:
             loss += train_step(lrs, hr, model, optimizer)
+        
         train_losses.append(loss)
         
-        # Save the model TODO appears to be broken, chained save problem?
         if (epoch + 1) % save_interval == 0:
             if verbose:
                 print("Saving model")
             model.save(model_base_path + "_" + str(epoch) + ".h5", include_optimizer=False)
 
         # Save a predicted sample
-        if (epoch + 1) % 30 == 0:
+        if (epoch + 1) % save_interval == 0:
             for lrs, hr in train_dataset.take(1):
                 save_pred(model, lrs, hr, "ResidualCNN", epoch)
         
         if verbose:
             print('epoch ' + str(epoch) + ' current train loss: ' + str(loss))
-
+            
+        # Reshuffle dataset, see https://github.com/tensorflow/tensorflow/issues/27680
+        train_dataset = train_dataset.shuffle(len(train_files))
             
     model.save(model_base_path + "_" + str(epoch) + ".h5", include_optimizer=False)
     
@@ -111,36 +109,10 @@ def main(epochs: int, learning_rate: float, batch_size: int, save_interval: int,
     # Print current Adam state for next training, could save somehow
     print(optimizer.get_config())
     
-
-"""
-***Temporarily*** predict model output because model.save appears to be broken TODO
-"""
-def predict_output(model, epoch):
-    test_scenes = glob("DataNormalized/test/*/*/multiple.tfrecords")
-    DataLoader = MultipleDataLoader("DataNormalized/")
     
-    # We load test data from TFRecords because LRs are already normalized
-    test_dataset = tf.data.TFRecordDataset(test_scenes)
-    test_dataset = test_dataset.map(lambda x: DataLoader.parse_multiple_fixed(x, augment=False)) 
-    test_dataset = test_dataset.batch(1)
-    
-    output_files = [record_path.split("/")[-2] + ".png" for record_path in test_scenes]
-    
-    save_path = "Result/Predicted/SRCNN_" + str(epoch) + "/"
-    os.makedirs(save_path, exist_ok=True)
-    
-    for lr_hr, file_name in zip(test_dataset, output_files):
-        lrs, _ = lr_hr
-        output = model(lrs)
-        output = skimage.img_as_uint(output[0])
-        
-        io.imsave(save_path + file_name, output)
-    
-
-        
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train ResidualCNN with multiple inputs")
-    parser.add_argument("-e", "--epoch", help="Number of epochs to train", type=int, default=1000)
+    parser.add_argument("-e", "--epoch", help="Number of epochs to train", type=int, default=41)
     parser.add_argument("-lr", "--learning_rate", help="Learning rate", type=float, default=1e-4)
     parser.add_argument("--batch_size", help="Number of scene per batch", type=int, default=4)
     parser.add_argument("--save_interval", help="Save model every epoch", type=int, default=20)

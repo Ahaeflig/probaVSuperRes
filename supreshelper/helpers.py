@@ -76,7 +76,6 @@ def baseline_upscale(path):
 
 
 
-
 def central_tendency(images, agg_with='median',
 	                 only_clear=False, fill_obscured=False,
 	                 img_as_float=True):
@@ -337,8 +336,8 @@ def score_image(sr, scene_path, hr_sm=None):
 	
 	# "We assume that the pixel-intensities are represented
 	# as real numbers ∈ [0,1] for any given image."
-	sr = check_img_as_float(sr)
-	hr = check_img_as_float(hr, validate=False)
+	#sr = check_img_as_float(sr)
+	#hr = check_img_as_float(hr, validate=False)
 	
 	# "Let N(HR) be the baseline cPSNR of image HR as found in the file norm.csv."
 	N = baseline_cPSNR.loc[scene_id(scene_path)][0]
@@ -420,13 +419,87 @@ def score_image_fast(sr, scene_path, hr_sm=None):
 
     # "We assume that the pixel-intensities are represented
     # as real numbers ∈ [0,1] for any given image."
-    sr = check_img_as_float(sr)
-    hr = check_img_as_float(hr, validate=False)
+    #sr = check_img_as_float(sr)
+    #hr = check_img_as_float(hr, validate=False)
 
     # "Let N(HR) be the baseline cPSNR of image HR as found in the file norm.csv."
     N = baseline_cPSNR.loc[scene_id(scene_path)][0]
 
     return score_against_hr(sr, hr, sm, N)
+
+def score_image_fast_normalized(sr, hr, scene_path):
+    """
+    Calculate the individual score (cPSNR, clear Peak Signal to Noise Ratio) for
+    `sr`, a super-resolved image from the scene at `scene_path`.
+
+    Parameters
+    ----------
+    sr : matrix of shape 384x384
+    super-resolved image.
+    scene_path : str
+    path where the scene's corresponding high-resolution image can be found.
+    hr_sm : tuple, optional
+    the scene's high resolution image and its status map. Loaded if `None`.
+    """
+
+    # "We assume that the pixel-intensities are represented
+    # as real numbers ∈ [0,1] for any given image."
+    #sr = check_img_as_float(sr)
+    #hr = check_img_as_float(hr, validate=False)
+
+    # "Let N(HR) be the baseline cPSNR of image HR as found in the file norm.csv."
+    N = baseline_cPSNR.loc[scene_id(scene_path)][0]
+
+    return score_against_hr_normalized(sr, hr, N)
+
+
+@numba.jit(nopython=True, parallel=True)
+def score_against_hr_normalized(sr, hr, N):
+    """
+    Numba-compiled version of the scoring function.
+    """
+    num_cropped = 6
+    max_u, max_v = np.array(hr.shape) - num_cropped
+
+    # "To compensate for pixel-shifts, the submitted images are
+    # cropped by a 3 pixel border, resulting in a 378x378 format."
+    c = num_cropped // 2
+    sr_crop = sr[c : -c, c : -c].ravel()
+
+    #crop_scores = []
+    cMSEs = np.zeros((num_cropped + 1, num_cropped + 1), np.float64)
+
+    for u in numba.prange(num_cropped + 1):
+        for v in numba.prange(num_cropped + 1):
+
+            # "We denote the cropped 378x378 images as follows: for all u,v ∈
+            # {0,…,6}, HR_{u,v} is the subimage of HR with its upper left corner
+            # at coordinates (u,v) and its lower right corner at (378+u, 378+v)"
+            hr_crop = hr[u : max_u + u, v : max_v + v].ravel()
+
+            # "we first compute the bias in brightness b"
+            pixel_diff = hr_crop - sr_crop
+            b = np.nanmean(pixel_diff)
+
+            # "Next, we compute the corrected clear mean-square
+            # error cMSE of SR w.r.t. HR_{u,v}"
+            pixel_diff -= b
+            pixel_diff *= pixel_diff
+            cMSE = np.nanmean(pixel_diff)
+
+            # "which results in a clear Peak Signal to Noise Ratio of"
+            #cPSNR = -10. * np.log10(cMSE)
+
+            # normalized cPSNR
+            #crop_scores.append(N / cPSNR)
+
+            cMSEs[u, v] = cMSE
+
+    # "The individual score for image SR is"
+    #sr_score = min(crop_scores)
+    sr_score = N / (-10. * np.log10(cMSEs.min()))
+
+    return sr_score
 
 
 
