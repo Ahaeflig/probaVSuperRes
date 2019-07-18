@@ -63,7 +63,11 @@ def save_scene(scene_path, normalize_lrs:bool, normalize_hr: bool, top_k):
         
         # cycle through lr_qms until we have max_lrs of them
         while (len(lrs) < 35):
-            lrs.append(lr_qms[idx][1])
+            if normalize_lrs:
+                lrs.append(normalize(lr_qms[idx][1]))
+            else:
+                lrs.append(lr_qms[idx][1])
+                
             idx += 1
             idx = idx % len(lr_qms)
             
@@ -152,7 +156,7 @@ def main(data_path: str, normalize_lrs: bool,  normalize_hr: bool, top_k: bool):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate TFRecords from the ProbaV Data")
     parser.add_argument("--data_dir", help="path to the directory containing the data", type=str, default="Data/")
-    parser.add_argument("-norm_lrs", "--normalize_lrs", help="enable LRs normalization (not recommneded)", action="store_true")
+    parser.add_argument("-norm_lrs", "--normalize_lrs", help="enable LRs normalization recommended", action="store_true")
     parser.add_argument("-norm_hr", "--normalize_hr", help="enabling HR normalization (not recommneded)", action="store_true")
     parser.add_argument("--top_k", help="Enable topK LR filling instead of mean filling", action="store_true")
     
