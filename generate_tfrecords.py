@@ -71,8 +71,10 @@ def save_scene(scene_path, normalize_lrs:bool, normalize_hr: bool, top_k: bool, 
                 
             idx += 1
             idx = idx % len(lr_qms)
-            
+        
+        # Add one median lr
         lrs.append(lr_filler)
+        
         # Shuffle LRS?
         # random.shuffle(lrs)
         
@@ -165,6 +167,6 @@ if __name__ == '__main__':
     
     # shuffle LR
     args = parser.parse_args()
-    main(args.data_dir, args.normalize_lrs, args.normalize_hr, args.top_k. args.k)
+    main(args.data_dir, args.normalize_lrs, args.normalize_hr, args.top_k, args.k)
     
     
