@@ -23,7 +23,7 @@ import tensorflow as tf
 import argparse
 
 
-def save_scene(scene_path, normalize_lrs:bool, normalize_hr: bool, top_k):
+def save_scene(scene_path, normalize_lrs:bool, normalize_hr: bool, top_k: bool, k: int):
     
     # todo make param
     data_destination = "DataNormalized"
@@ -31,10 +31,11 @@ def save_scene(scene_path, normalize_lrs:bool, normalize_hr: bool, top_k):
     new_path = data_destination + "/" + "/".join(scene_path.split("/")[1:])
     os.makedirs(new_path, exist_ok=True)
     
+    lr_filler = central_tendency(scene_path, agg_with='median', only_clear=False)
+    if normalize_lrs:
+        lr_filler = normalize(lr_filler)
+    
     if not top_k:
-        lr_filler = central_tendency(scene_path, agg_with='median', only_clear=False)
-        if normalize_lrs:
-            lr_filler = normalize(lr_filler)
         
         lrs = load_and_normalize_lrs(scene_path, normalize_lrs)
 
@@ -62,7 +63,7 @@ def save_scene(scene_path, normalize_lrs:bool, normalize_hr: bool, top_k):
         idx = 0
         
         # cycle through lr_qms until we have max_lrs of them
-        while (len(lrs) < 35):
+        while (len(lrs) < k):
             if normalize_lrs:
                 lrs.append(normalize(lr_qms[idx][1]))
             else:
@@ -71,6 +72,7 @@ def save_scene(scene_path, normalize_lrs:bool, normalize_hr: bool, top_k):
             idx += 1
             idx = idx % len(lr_qms)
             
+        lrs.append(lr_filler)
         # Shuffle LRS?
         # random.shuffle(lrs)
         
@@ -129,7 +131,7 @@ def load_and_normalize_lrs(scene_path):
     return normalized_lrs
 
 
-def main(data_path: str, normalize_lrs: bool,  normalize_hr: bool, top_k: bool):
+def main(data_path: str, normalize_lrs: bool,  normalize_hr: bool, top_k: bool, k: int):
 
     print("Getting data from " + data_path)
     print("normalize lr: " + str(normalize_lrs))
@@ -151,7 +153,7 @@ def main(data_path: str, normalize_lrs: bool,  normalize_hr: bool, top_k: bool):
             
     for scene in train + test:
         #print("saving scene " + scene)
-        save_scene(scene, normalize_lrs, normalize_hr, top_k)
+        save_scene(scene, normalize_lrs, normalize_hr, top_k, k)
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate TFRecords from the ProbaV Data")
@@ -159,10 +161,10 @@ if __name__ == '__main__':
     parser.add_argument("-norm_lrs", "--normalize_lrs", help="enable LRs normalization recommended", action="store_true")
     parser.add_argument("-norm_hr", "--normalize_hr", help="enabling HR normalization (not recommneded)", action="store_true")
     parser.add_argument("--top_k", help="Enable topK LR filling instead of mean filling", action="store_true")
+    parser.add_argument("--k", help="Number of top K filter to include", type=int, default=35)
     
     # shuffle LR
-    
     args = parser.parse_args()
-    main(args.data_dir, args.normalize_lrs, args.normalize_hr, args.top_k)
+    main(args.data_dir, args.normalize_lrs, args.normalize_hr, args.top_k. args.k)
     
     
