@@ -17,22 +17,21 @@ Helper file with functions written to perform the optimization of a neural net.
 ==============================
 '''
 
-def applyMask(hr, generated):
+def apply_mask(hr, sr):
     """ Finds np.NaN values in the HR image and set those pixel to 0 (False) in hr and generated.
     
         Args:
             hr: High resolution image where obstructed pixel are encoded as nan values
-            generated: generated image by the model which
+            sr: generated image by the model which
             
         Return:
             The modified (masked) HR and generated images
     
     """
+    hr_ = tf.where(tf.math.is_nan(hr), 0.0, hr)
+    sr_ = tf.where(tf.math.is_nan(hr), 0.0, sr)
 
-    obs = tf.where(tf.math.is_nan(hr), False, True)
-    hr_ = tf.boolean_mask(hr, obs)
-    generated_ = tf.boolean_mask(generated, obs)
-    return hr_, generated_
+    return hr_, sr_
 
 
 def clearMSE(hr_masked, generated_masked):
@@ -53,6 +52,13 @@ def clearMSE(hr_masked, generated_masked):
     return loss
 
 
+def clearMSE_metric(hr, sr):
+    hr = apply_mask(hr, sr)
+    bias = tf.math.reduce_mean(hr - sr) 
+    loss = tf.math.reduce_mean(tf.pow(hr - (sr + bias), 2))
+    return loss
+    
+
 def clearMAE(hr_masked, generated_masked):
     """ MAE loss in the same vein as clearMSE
     
@@ -65,21 +71,31 @@ def clearMAE(hr_masked, generated_masked):
     """
     
     bias = tf.math.reduce_mean(hr_masked - generated_masked) 
-    loss = tf.math.reduce_mean(hr_masked - (generated_masked + bias))
+    loss = tf.math.reduce_mean(tf.abs(hr_masked - (generated_masked + bias)))
     return loss
 
 
+def similarity_loss(hr, sr):
+    # TODO what would be nice for sigma?
+    diff_loss = 1.0 - tf.image.ssim(hr, sr, 1.0, filter_size=3, filter_sigma=1.2, k1=0.01, k2=0.03)
+    return tf.math.reduce_mean(diff_loss)
+
+
+def compute_loss(hr, sr):
+    hr_, sr_ = apply_mask(hr, sr) 
+    return similarity_loss(hr_, sr_)
+
+
 @tf.function
-def compute_loss(lrs, hr, model, training=True):
+def predict_and_compute_loss(lrs, hr, model, training=True):
     sr = model(lrs, training)
     hr_masked, sr_masked = applyMask(hr, sr) 
     return clearMSE(hr_masked, sr_masked) + clearMAE(hr_masked, sr_masked)
 
-
 @tf.function
 def train_step(lrs, hr, model, optimizer):
     with tf.GradientTape() as model_tape:
-        loss = compute_loss(lrs, hr, model)
+        loss = predict_and_compute_loss(lrs, hr, model)
         # Compute gradient for parameter
         model_gardients = model_tape.gradient(loss, model.trainable_variables)
         # Apply the gradient to the variables, model weights are updated here

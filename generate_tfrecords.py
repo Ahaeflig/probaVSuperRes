@@ -53,9 +53,12 @@ def save_scene(scene_path, normalize_lrs:bool, normalize_hr: bool, top_k: bool, 
         
         lr_qms = [(skimage.io.imread(lr), skimage.io.imread(qm)) for lr, qm in zip(lrs_path, qms_path)]
         # (qm score, lr as float, qm in [0,1])
-        lr_qms = [(np.sum(qm), skimage.img_as_float64(lr << 2), qm / 255.0) for lr, qm in lr_qms]
+        #lr_qms = [(np.sum(qm), skimage.img_as_float64(lr << 2), qm / 255.0) for lr, qm in lr_qms]
+        lr_qms = [(np.sum(qm), skimage.img_as_float64(lr), qm / 255.0) for lr, qm in lr_qms]
         # qm_score, lr with concealed pixel as 0
-        lr_qms = [(qm_score, lr * qm) for qm_score, lr, qm in lr_qms]
+        #lr_qms = [(qm_score, lr * qm) for qm_score, lr, qm in lr_qms]
+        lr_qms = [(qm_score, lr) for qm_score, lr, qm in lr_qms]
+        
         # sorted by qm_score
         lr_qms = sorted(lr_qms, key = lambda t: t[0], reverse=True)
         
@@ -117,7 +120,8 @@ def normalize(image):
 
 def load_and_normalize_hr(scene_path, normalize=False):
     hr, _ = highres_image(scene_path, img_as_float=False)
-    hr = skimage.img_as_float64(hr << 2)
+    #hr = skimage.img_as_float64(hr << 2)
+    hr = skimage.img_as_float64(hr)
     if normalize:
         return normalize(hr)
     else:

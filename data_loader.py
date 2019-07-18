@@ -23,15 +23,15 @@ class MultipleDataLoader():
         pass
 
     @tf.function
-    def parse_multiple_fixed(self, example_proto, augment=False):
+    def parse_multiple_fixed(self, example_proto, augment = False, num_lrs = 35):
         """ Parses a tf record and reconstruct the correct data from the following features:
         
             feature ={"lrs": tf.train.Feature(float_list=tf.train.FloatList(value=np.concatenate(lrs).ravel())),
                       "hr": tf.train.Feature(float_list=tf.train.FloatList(value=hr.flatten()))}
             
-            where lrs always has 35 lr images
+            where lrs exactly has num_lrs lr images
         """
-        keys_to_features = {'lrs':tf.io.FixedLenFeature((35, 128, 128), tf.float32),
+        keys_to_features = {'lrs':tf.io.FixedLenFeature((num_lrs, 128, 128), tf.float32),
                             'hr': tf.io.FixedLenFeature((384, 384), tf.float32)}
         
         parsed_features = tf.io.parse_single_example(example_proto, keys_to_features)

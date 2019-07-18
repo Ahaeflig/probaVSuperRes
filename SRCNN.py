@@ -11,15 +11,16 @@ class SRCNN():
     """
     
     
-    def __init__(self, channel_dim = 35, number_residual_block = 3):
+    def __init__(self, channel_dim = 35, number_residual_block = 3, include_batch_norm = False):
         inputs = Input(shape=[128, 128, channel_dim])
         self.number_residual_block = 3
+        self.batch_norm = include_batch_norm
         self.model = self.build_model(inputs)
         self.name = "ResidualCNN"
         
     
     @staticmethod
-    def residual_block_gen(model, kernel_size, filters, strides):
+    def residual_block_gen(model, kernel_size, filters, strides, batch_norm):
         """ ResNet residual block a bit modified with a LeakyReLU and no activation function after the additon
         
             Args:
@@ -31,11 +32,16 @@ class SRCNN():
         
         previous = model
 
-        model = Conv2D(filters, kernel_size, strides=strides, padding='same')(model)
-        model = BatchNormalization()(model)
+        model = Conv2D(filters, kernel_size, strides=strides, padding='same', kernel_initializer='he_normal')(model)
+        
+        if batch_norm:
+            model = BatchNormalization()(model)
+            
         model = LeakyReLU(alpha = 0.2)(model)
-        model = Conv2D(filters, kernel_size, strides=strides, padding='same')(model)
-        model = BatchNormalization()(model)
+        model = Conv2D(filters, kernel_size, strides=strides, padding='same', kernel_initializer='he_normal')(model)
+        
+        if batch_norm:
+            model = BatchNormalization()(model)
 
         return Add()([previous, model])
     
@@ -51,10 +57,10 @@ class SRCNN():
                 strides: shift amount between each convolution
         """
         
-        model = Conv2D(filters, kernel_size, strides, padding = "same")(model)
+        model = Conv2D(filters, kernel_size, strides, padding = "same", kernel_initializer='he_normal')(model)
         model = LeakyReLU(alpha = 0.2)(model)
         model = UpSampling2D(size = 3)(model)
-        model = Conv2D(filters, kernel_size, strides, padding = "same")(model)
+        model = Conv2D(filters, kernel_size, strides, padding = "same", kernel_initializer='he_normal')(model)
         model = LeakyReLU(alpha = 0.2)(model)
 
         return model
@@ -74,22 +80,25 @@ class SRCNN():
         Returns:
             a tf.keras.Model, the built model
         """
-        model = Conv2D(64, 9, strides=1, padding='same')(inputs)
+        model = Conv2D(64, 9, strides=1, padding='same', kernel_initializer='he_normal')(inputs)
         model = LeakyReLU(alpha = 0.2)(model)
         
         skip_connection = model
         
         # Residual Blocks, 3 could probably be increased on faster machines
         for i in range(self.number_residual_block):
-            model = self.residual_block_gen(model, 3, 64, 1)
+            model = self.residual_block_gen(model, 3, 64, 1, self.batch_norm)
 
         model = Conv2D(filters = 1, kernel_size = 9, strides = 1, padding = "same")(model)
-        model = BatchNormalization()(model)
+        
+        if self.batch_norm:
+            model = BatchNormalization()(model)
+            
         model = Add()([model, skip_connection])
         
         # Upsample
         model = self.up_sample_block(model, 3, 256, 1)
-        model = Conv2D(1, kernel_size = 9, strides = 1, padding = "same")(model)
+        model = Conv2D(1, kernel_size = 9, strides = 1, padding = "same", kernel_initializer='he_normal')(model)
         model = Activation('sigmoid')(model)
 
         return tf.keras.Model(inputs = inputs, outputs = model)     
