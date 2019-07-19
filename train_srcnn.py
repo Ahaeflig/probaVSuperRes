@@ -7,8 +7,6 @@ import os.path
 
 from tensorflow import keras
 
-import pickle
-
 import skimage
 from skimage import io 
 
@@ -19,7 +17,7 @@ from data_loader import MultipleDataLoader
 from SRCNN import SRCNN
 
 # Function for model training
-from training_helpers import compute_loss, train_step, show_pred, save_pred
+from training_helpers import clearMSE_metric, compute_loss, show_pred, save_pred
 
 
 def main(epochs: int, learning_rate: float, batch_size: int, save_interval: int, model_path: str, verbose: bool):
@@ -34,15 +32,23 @@ def main(epochs: int, learning_rate: float, batch_size: int, save_interval: int,
             verbose: flag to enable or disable print outputs
     """
     
+    # TODO make these params
+    lr_channels = 5
     data_dir = "DataNormalized/"
+    
     DataLoader = MultipleDataLoader(data_dir)
-
+    
     train_files = glob(data_dir +  "train/*/*/multiple.tfrecords")
     
     train_dataset = tf.data.TFRecordDataset(train_files)
-    # reshuffle_each_iteration works only for the repeat operation
-    train_dataset = train_dataset.shuffle(len(train_files), reshuffle_each_iteration=True)
-    train_dataset = train_dataset.map(lambda x: DataLoader.parse_multiple_fixed(x, augment=True), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    # Map each file to the parsing funciton, enabling data augmentation
+    train_dataset = train_dataset.map(lambda x: DataLoader.parse_multiple_fixed(x, augment=True, num_lrs = lr_channels), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+    # reshuffle_each_iteration works only when combined with repeat
+    train_dataset = train_dataset.repeat()
+    train_dataset = train_dataset.shuffle(len(train_files))
+
+    # Set the batch size
     train_dataset = train_dataset.batch(batch_size)
 
     # Create a Model folder if it doesn't exist
@@ -53,62 +59,31 @@ def main(epochs: int, learning_rate: float, batch_size: int, save_interval: int,
         if verbose:
             print("Loading model from " + model_path)
         
-        model = keras.models.load_model(model_path, compile=False)
-        # I encode the current epoch in the model file name: modelName_epoch.h5
-        current_epoch = int(model_path.split("_")[1].split(".")[0])
-
+        custom_object = {'compute_loss': compute_loss, 'clearMSE_metric': clearMSE_metric}
+        model = tf.keras.models.load_model(model_path, custom_objects=custom_object)
+        
     else:
         if verbose:
             print("Creating new model, will save at Model/residual.h5 after training")
             
-        model_path = "Model/residual_0.h5"
-        current_epoch = 0
-        model = SRCNN().model
+        model = SRCNN(channel_dim=lr_channels, include_batch_norm = False).model
+        optimizer = tf.keras.optimizers.Adam(learning_rate)
         
-    model_base_path = model_path.split("_")[0]
+        filepath = "Model/SRCNN/{epoch:02d}.hdf5"
+        os.makedirs("Model/SRCNN/", exist_ok=True)
+        checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='train_loss', verbose=0, save_best_only=False, save_weights_only=False, mode='auto', save_freq='epoch')
+        
+        model.compile(optimizer, compute_loss, metrics=[clearMSE_metric])
+
+        callbacks_list = [checkpoint]
+        
+    if verbose:
+        print("Model Training starting:")
     
-    optimizer = tf.keras.optimizers.Adam(learning_rate)
-    
+    model.fit_generator(train_dataset, steps_per_epoch=len(train_files) / batch_size, epochs=epochs, use_multiprocessing=True, callbacks=callbacks_list)
     
     if verbose:
-        print("Model Training starting: " )
-        #print(len(train_dataset) )
-    
-    # Training
-    train_losses = []
-    for epoch in range(current_epoch, current_epoch + epochs):
-        
-        loss = 0
-        for lrs, hr in train_dataset:
-            loss += train_step(lrs, hr, model, optimizer)
-        
-        train_losses.append(loss)
-        
-        if (epoch + 1) % save_interval == 0:
-            if verbose:
-                print("Saving model")
-            model.save(model_base_path + "_" + str(epoch) + ".h5", include_optimizer=False)
-
-        # Save a predicted sample
-        if (epoch + 1) % save_interval == 0:
-            for lrs, hr in train_dataset.take(1):
-                save_pred(model, lrs, hr, "ResidualCNN", epoch)
-        
-        if verbose:
-            print('epoch ' + str(epoch) + ' current train loss: ' + str(loss))
-            
-        # Reshuffle dataset, see https://github.com/tensorflow/tensorflow/issues/27680
-        train_dataset = train_dataset.shuffle(len(train_files))
-            
-    model.save(model_base_path + "_" + str(epoch) + ".h5", include_optimizer=False)
-    
-    # could convert to tensorboard logging if time
-    with open('residual_losses.pickle', 'wb') as handle:
-        pickle.dump(train_losses, handle)
-        
-    # Print current Adam state for next training, could save somehow
-    print(optimizer.get_config())
-    
+        print("Model Training finished:")
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Train ResidualCNN with multiple inputs")
