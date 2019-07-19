@@ -30,7 +30,7 @@ python predict.py $path_to_model$ --output_dir $path$
 ```
 
 ### Scores
-
+Lower is better:
 <table class="tg">
   <tr>
     <th class="tg-0pky"></th>
