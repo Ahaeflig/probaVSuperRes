@@ -110,28 +110,38 @@ def train_step(lrs, hr, model, optimizer):
 ==============================
 '''
 
-def discriminator_loss(disc_real_output, disc_generated_output):
-    real_loss = disc_real_output
-    generated_loss =  tf.math.abs(disc_generated_output - 1.0)
-    total_disc_loss = real_loss + generated_loss
+def discriminator_loss(disc_hr_output, disc_sr_output):
+    # real_loss = 1.0 - disc_real_output
+    
+    real_loss = (tf.ones_like(disc_hr_output) - tf.random.uniform(disc_hr_output.shape) * 0.1) - disc_hr_output
+    real_loss = tf.clip_by_value(real_loss, 0.0, 1.0)
+    
+    # generated_loss =  tf.math.abs(disc_generated_output - 1.0)
+    # generated_loss =  disc_generated_output
+    
+    generated_loss = tf.random.uniform(disc_sr_output.shape) * 0.1 + disc_sr_output
+    
+    return 0.5 * tf.math.reduce_mean((real_loss + generated_loss))
+    
+    # total_disc_loss = 0.5 * (real_loss + generated_loss)
+    # return tf.math.reduce_mean(total_disc_loss)
 
-    return total_disc_loss
-
-
-def generator_loss(disc_output, sr, hr, lambda_ = 10):
+def generator_loss(disc_sr, hr, sr, lambda_ = 100):
     # we try to trick the discriminator to predict our generated image to be considered as valid ([1])
-    gan_loss = 1.0 - disc_output
+    
+    #gan_loss = tf.math.reduce_mean(1.0 - disc_sr)
+    gan_loss = tf.math.reduce_mean((tf.ones_like(disc_sr) - tf.random.uniform(disc_sr.shape) * 0.1) - disc_sr)
+    gan_loss = tf.clip_by_value(gan_loss, 0.0, 1.0)
     
     # We also want the image to look as similar as possible to the HR images
-    hr_masked, output_masked = applyMask(hr, sr) 
-    clear_losses = clearMSE(hr_masked, output_masked) + clearMAE(hr_masked, output_masked)
+    sim_loss = similarity_loss(hr, sr)
     
     # Lambda weights how much we value each loss
-    return gan_loss + (lambda_ * clear_losses)
+    return gan_loss + (lambda_ * sim_loss)
 
 
 @tf.function
-def compute_loss_gan(lr, hr, generator, discriminator):
+def predict_and_compute_loss_gan(hr, outputs, generator, discriminator):
     # Get generator output
     sr = generator(lr, training=True)
 
@@ -145,18 +155,32 @@ def compute_loss_gan(lr, hr, generator, discriminator):
 
     return gen_loss, disc_loss
 
-
+        
 @tf.function
-def train_step_gan(lr, hr, generator, discriminator, generator_optimizer, discriminator_optimizer):
+def train_step_gan(lrs, hr, generator, discriminator, generator_optimizer, discriminator_optimizer, gen_train = False):
     with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
-        gen_loss, disc_loss = compute_loss(lr, hr, generator, discriminator)
+        
+        sr = generator(lrs)
+        
+        hr_, sr_ = apply_mask(hr, sr)
+        
+        # Todo add smoothing
+        disc_hr = discriminator(hr_, training=True)
+        disc_sr = discriminator(sr_, training=True)
+        
+        disc_loss = discriminator_loss(disc_hr, disc_sr)
+        gen_loss = generator_loss(disc_sr, hr_, sr_)
+        
+        
         # We compute gradient for each part
-        generator_gradients = gen_tape.gradient(gen_loss, srg.generator.trainable_variables)
-        discriminator_gradients = disc_tape.gradient(disc_loss, srg.discriminator.trainable_variables)
+        
+        discriminator_gradients = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
 
-        # We apply the gradient to the variables, tf2.0 way
-        generator_optimizer.apply_gradients(zip(generator_gradients, srg.generator.trainable_variables))
-        discriminator_optimizer.apply_gradients(zip(discriminator_gradients, srg.discriminator.trainable_variables))
+        if tf.equal(gen_train, True):
+            generator_gradients = gen_tape.gradient(gen_loss, generator.trainable_variables)
+            generator_optimizer.apply_gradients(zip(generator_gradients, generator.trainable_variables))
+        
+        discriminator_optimizer.apply_gradients(zip(discriminator_gradients, discriminator.trainable_variables))
         
     return gen_loss, disc_loss
 
