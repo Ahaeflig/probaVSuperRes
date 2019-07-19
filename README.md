@@ -16,14 +16,14 @@ Expects a folder with the [data](https://kelvins.esa.int/proba-v-super-resolutio
 python generate_tfrecords.py --data_dir $path_to_folder$
 ```
 
-### With the training scripts
+### Train with the training scripts
 
 ```bash
 python train_srcnn.py -v --epoch 1000 --learning_rate 0.0001 --batch_size 4 
 ```
 Resume training with ```--model_path $path$``` (for train_gan.py, resuming is not yet supported)
 
-### With Notebooks
+### Train with notebooks
 
 SRCNN_notebook and SRGAN_notebook shows how to train each model
 
