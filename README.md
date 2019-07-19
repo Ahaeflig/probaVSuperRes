@@ -87,7 +87,7 @@ Lower is better:
   <tr>
     <td class="tg-0lax">SRGAN</td>
     <td class="tg-0lax">30</td>
-    <td class="tg-0lax">Top-4</td>
+    <td class="tg-0lax">Top-4 + Median</td>
     <td class="tg-0lax">SSIM + GAN</td>
     <td class="tg-0lax">1.00079132784449</td>
     <td class="tg-0lax">###</td>
