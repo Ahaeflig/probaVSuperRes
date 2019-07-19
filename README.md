@@ -52,7 +52,7 @@ python predict.py $path_to_model$ --output_dir $path$
     <td class="tg-0pky">SRCNN</td>
     <td class="tg-0pky">30</td>
     <td class="tg-0pky">Top-4 + Median</td>
-    <td class="tg-0pky">similarity</td>
+    <td class="tg-0pky">SSIM</td>
     <td class="tg-0pky">1.0306669966571653</td>
     <td class="tg-0pky">###</td>
   </tr>
@@ -60,7 +60,7 @@ python predict.py $path_to_model$ --output_dir $path$
     <td class="tg-0pky">SRCNN</td>
     <td class="tg-0pky">60</td>
     <td class="tg-0pky">Top-4 + Median</td>
-    <td class="tg-0pky">similarity</td>
+    <td class="tg-0pky">SSIM</td>
     <td class="tg-0pky">1.012628179551261</td>
     <td class="tg-0pky">###</td>
   </tr>
@@ -76,7 +76,7 @@ python predict.py $path_to_model$ --output_dir $path$
     <td class="tg-0pky">SRGAN</td>
     <td class="tg-0pky">10</td>
     <td class="tg-0pky">Top-4 + Median</td>
-    <td class="tg-0pky">similarity + GAN</td>
+    <td class="tg-0pky">SSIM + GAN</td>
     <td class="tg-0pky">1.0041622868681903</td>
     <td class="tg-0pky">###</td>
   </tr>
@@ -84,7 +84,7 @@ python predict.py $path_to_model$ --output_dir $path$
     <td class="tg-0lax">SRGAN</td>
     <td class="tg-0lax">30</td>
     <td class="tg-0lax">Top-4</td>
-    <td class="tg-0lax">similarity + GAN</td>
+    <td class="tg-0lax">SSIM + GAN</td>
     <td class="tg-0lax">1.00079132784449</td>
     <td class="tg-0lax">###</td>
   </tr>
