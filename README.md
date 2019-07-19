@@ -25,7 +25,7 @@ Resume training with ```--model_path $path$``` (for train_gan.py, resuming is no
 
 ### Train with notebooks
 
-SRCNN_notebook and SRGAN_notebook shows how to train each model
+SRCNN_notebook.ipynb and SRGAN_notebook.ipynb shows how to train each model
 
 ### Run predictions on the test set
 
