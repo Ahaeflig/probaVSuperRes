@@ -15,22 +15,16 @@ Expects a folder with the [data](https://kelvins.esa.int/proba-v-super-resolutio
 ```bash
 python generate_tfrecords.py --data_dir $path_to_folder$
 ```
-
-### Train with the training scripts
-
-```bash
-python train_srcnn.py -v --epoch 1000 --learning_rate 0.0001 --batch_size 4 
-```
-Resume training with ```--model_path $path$``` (for train_gan.py, resuming is not yet supported)
+The number of LRs and the startegy is customisable.
 
 ### Train with notebooks
 
-SRCNN_notebook.ipynb and SRGAN_notebook.ipynb shows how to train each model
+Model_Training.ipynb shows how to train each model
 
-### Run predictions on the test set
+### Compute scores on
 
 ```bash
-python predict.py $path_to_model$ --output_dir $path$
+python score.py --model_path $path$ --data_path $train_folder$ --num_channel $number_LRs$
 ```
 
 ### Scores
