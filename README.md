@@ -41,7 +41,7 @@ Lower is better:
   <tr>
     <td class="tg-0pky">Baseline</td>
     <td class="tg-0pky">0</td>
-    <td class="tg-0pky">None</td>
+    <td class="tg-0pky">Top-K median + bicubic</td>
     <td class="tg-0pky">None</td>
     <td class="tg-0pky">1.0062784200046624</td>
     <td class="tg-0pky">1.00000007339574</td>
