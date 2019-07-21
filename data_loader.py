@@ -1,37 +1,88 @@
-import os
 from glob import glob
-
-import skimage
-import numpy as np
-
-import matplotlib
-import matplotlib.pyplot as plt
 import tensorflow as tf
 
-from supreshelper import *
-
-from typing import List
-import time
-
-LR_HR_RATIO = 3
-
 class MultipleDataLoader():
-    """ Class that provdes utilities to read and process TFRecords that contains multiple LR images and their correpsonding HR image. The main point of the class is to map a tf.data.TFRecordDataset to the parse function. This will turn the TF dataset into an iterator yields Tensor ready to be fed to the model.
+    """ Class that provdes utilities to read and process TFRecords that contains multiple LR images and their correpsonding HR image.
+        The main point of the class is to map TFRecords to the parse function to build a dataset.
+        This will turn the TF dataset into an iterator yielding Tensors ready to be fed to the model.
+        
+        Define the loader:
+        loader = MultipleDataLoader("DataTFRecords/train/", 4, True, True, 5)
+        
+        Iterate over the data:
+        for lrs, hr in loader().take(1):
+            ...
+        
+        Args:
+            data_dir: Path to the folder containg TFRecords, typically: "DataTFRecords/train/"
+            batch_size: Batch size of the created dataset
+            repeat: Should the dataset be repeated (Used when training with model.fit())
+            augment: Apply data augmentations
+            num_lrs: Number of LRs in the TFRecords (generated with generate_tfrecords.py)
+        
     """
     
-    def __init__(self, data_dir: str):
-        pass
+    
+    def __init__(self, data_dir: str, batch_size: int, repeat: bool, augment:bool, shuffle: bool, num_lrs: int):
+        self.files = glob(data_dir +  "*/*/multiple.tfrecords")
+        
+        assert(len(self.files) > 1), "No scenes found, check path to train folder"
+        
+        self.batch_size = batch_size
+        self.repeat = repeat
+        self. augment = augment
+        self.shuffle = shuffle
+        self.num_lrs = num_lrs
+        
+        self.dataset = self.build_dataset()
+    
+    def __call__(self):
+        return self.dataset
+    
+    
+    def build_dataset(self):
+        """ Builds the TFRecordDataset that can be iterated over when training models.
+        
+        """
+        
+        # Create a tf dataset
+        tf_dataset = tf.data.TFRecordDataset(self.files)
+        
+        # For batch_size = 1, having multiple workers can make the tf2 crash
+        num_parallel = tf.data.experimental.AUTOTUNE if self.batch_size > 1 else 1
+            
+        tf_dataset = tf_dataset.map(lambda x: self.parse_multiple_fixed(x), num_parallel_calls=num_parallel)
 
+        if self.repeat:
+            tf_dataset = tf_dataset.repeat() 
+        
+        if self.shuffle:
+            tf_dataset = tf_dataset.shuffle(len(self.files))
+            
+        tf_dataset = tf_dataset.batch(self.batch_size)
+        
+        return tf_dataset
+    
+    
+    def get_shuffled_copy(self):
+        """ Returns a shuffled copy of the dataset, useful when manually iterating over the dataset,
+            we need to manually shuffle as well.
+        
+        """
+        dataset_epoch = self.dataset.shuffle(len(self.files))
+        return dataset_epoch
+        
+        
     @tf.function
-    def parse_multiple_fixed(self, example_proto, augment = False, num_lrs = 35):
+    def parse_multiple_fixed(self, example_proto):
         """ Parses a tf record and reconstruct the correct data from the following features:
         
             feature ={"lrs": tf.train.Feature(float_list=tf.train.FloatList(value=np.concatenate(lrs).ravel())),
                       "hr": tf.train.Feature(float_list=tf.train.FloatList(value=hr.flatten()))}
-            
+                      
             where lrs exactly has num_lrs lr images
         """
-        keys_to_features = {'lrs':tf.io.FixedLenFeature((num_lrs, 128, 128), tf.float32),
+        keys_to_features = {'lrs':tf.io.FixedLenFeature((self.num_lrs, 128, 128), tf.float32),
                             'hr': tf.io.FixedLenFeature((384, 384), tf.float32)}
         
         parsed_features = tf.io.parse_single_example(example_proto, keys_to_features)
@@ -39,46 +90,18 @@ class MultipleDataLoader():
         lrs_merged = parsed_features['lrs']
         lrs_reshaped = tf.transpose(lrs_merged, perm=[1,2,0])
         
-        if augment:
-            return self.augment(lrs_reshaped, tf.expand_dims(parsed_features['hr'], axis=2))
+        if self.augment:
+            return self.augment_data(lrs_reshaped, tf.expand_dims(parsed_features['hr'], axis=2))
         else:
              return lrs_reshaped, tf.expand_dims(parsed_features['hr'], axis=2)
         
         
-    @tf.function
-    def parse_multiple_flexible(self, example_proto, augment=False):
-        """ Parses a tf record and reconstruct the correct data from the following features:
         
-            feature ={"lrs": tf.train.Feature(float_list=tf.train.FloatList(value=np.concatenate(lrs).ravel())),
-              "lrs_length": tf.train.Feature(int64_list=tf.train.Int64List(value=[len(lrs)])),
-              "hr": tf.train.Feature(float_list=tf.train.FloatList(value=hr.flatten())),
-             }
-             
-             where lrs can have a flexible amount of lr images
+    @tf.function
+    def augment_data(self, lrs, hr):
+        """ Randomly flip horizonally or vertically the input tensors
+        
         """
-        keys_to_features = {'lrs':tf.io.VarLenFeature(tf.float32),
-                            'lrs_length': tf.io.FixedLenFeature((1), tf.int64),
-                            'hr': tf.io.FixedLenFeature((384,384), tf.float32)}
-        
-        parsed_features = tf.io.parse_single_example(example_proto, keys_to_features)
-        
-        lrs_merged = tf.sparse.to_dense(parsed_features['lrs'])
-        lrs_length = parsed_features['lrs_length']
-        
-        lrs_reshaped = tf.reshape(lrs_merged, (-1, 128,128))
-        
-        # We take 9 LRs from all stored LRs, minimum among all scenes
-        lrs_reshaped = tf.random.shuffle(lrs_reshaped)[:9,:,:]
-        
-        lrs_reshaped = tf.transpose(lrs_reshaped, perm=[1,2,0])
-        
-        if augment:
-            return self.augment(lrs_reshaped, tf.expand_dims(parsed_features["hr"], axis=2))
-        else:
-            lrs_reshaped, tf.expand_dims(parsed_features["hr"], axis=2)
-        
-    @tf.function
-    def augment(self, lrs, hr):
         
         if tf.random.uniform(()) >= 0.5:
             lrs = tf.image.flip_left_right(lrs)

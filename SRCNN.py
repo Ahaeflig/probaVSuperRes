@@ -85,7 +85,6 @@ class SRCNN():
         
         skip_connection = model
         
-        # Residual Blocks, 3 could probably be increased on faster machines
         for i in range(self.number_residual_block):
             model = self.residual_block_gen(model, 3, 64, 1, self.batch_norm)
 

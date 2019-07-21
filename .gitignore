@@ -1,6 +1,8 @@
 Data/
 DataStandardized/
 DataNormalized/
+DataTFRecords/
+
 TrainingCheckpoint/
 TrainingCheckpointSimple/
 Result/
