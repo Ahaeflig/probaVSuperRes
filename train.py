@@ -160,19 +160,23 @@ class SRCNNTrainer:
         
         self.model = self.build_model()
         
+        verbose_print("Params:", self.verbose)
+        verbose_print(str(training_params), self.verbose)
+        verbose_print(str(srcnn_model_parameters), self.verbose)
+        
         
     def build_model(self):
         if os.path.isfile(self.model_path):
             verbose_print("Loading model from " + self.model_path, self.verbose)
             custom_object = {'custom_loss': self.custom_loss, 'cPSNR_metric': Losses.cPSNR_metric}
-            model = tf.keras.models.load_model(self.model_path, custom_objects=custom_object)
+            srcnn_model = tf.keras.models.load_model(self.model_path, custom_objects=custom_object)
             
         else:
             verbose_print("Creating new model, saving at \"Model/SRCNN/\" ", self.verbose)
-            model = SRCNN(channel_dim=self.channel_dim, number_residual_block = self.number_residual_block, include_batch_norm = self.batch_norm).model 
-            model.compile(self.optimizer, self.custom_loss, metrics=[Losses.cPSNR_metric])
+            srcnn_model = SRCNN(channel_dim=self.channel_dim, number_residual_block = self.number_residual_block, include_batch_norm = self.batch_norm).model 
+            srcnn_model.compile(self.optimizer, self.custom_loss, metrics=[Losses.cPSNR_metric])
         
-        return model
+        return srcnn_model
     
     
     @tf.function
@@ -207,7 +211,6 @@ class SRCNNTrainer:
         
         verbose_print("Model training finished", self.verbose)
     
-    
 
     
 '''
@@ -229,7 +232,7 @@ class SRGANTrainer:
         self.optimizer_gen = training_params["optimizer_gen"]
         self.optimizer_discr = training_params["optimizer_discr"]
         self.verbose = training_params["verbose"]
-        self.pretrained_generator_path = training_params["args.pretrained_generator_path"]
+        self.pretrained_generator_path = training_params["pretrained_generator_path"]
         
         self.model_path = ""
         if "model_path" in training_params:
@@ -244,6 +247,7 @@ class SRGANTrainer:
         self.discriminator = None
         self.model = self.build_model()
         
+        
     def build_model(self):
         if os.path.isfile(self.model_path):
             raise NotImplementedError("Retraining SRGAN model not implemented yet")
@@ -255,9 +259,14 @@ class SRGANTrainer:
             
             if (os.path.isfile(self.pretrained_generator_path)):
                 verbose_print("Loading pre-trained generator from " + self.pretrained_generator_path, self.verbose)
+                
+                # Get model weights
                 custom_object = {'custom_loss': SRCNNTrainer.custom_loss, 'cPSNR_metric': Losses.cPSNR_metric}
-                gen_weights = keras.models.load_model(self.pretrained_generator_path, custom_objects=custom_object).weights
-                generator.load_weights(gen_weights)
+                pre_train = keras.models.load_model(self.pretrained_generator_path, custom_objects=custom_object, compile=False)
+                pre_train.save_weights("gen_weights.h5")
+                
+                # Load model weights
+                generator.load_weights("gen_weights.h5")
 
             srgan = SRGAN(generator, channel_dim=self.channel_dim, include_batch_norm = self.batch_norm)
             self.generator = srgan.generator
@@ -303,6 +312,7 @@ class SRGANTrainer:
             gen_loss = 0.0
             cPSNR_loss = 0.0
             
+            iter_ = 1.0
             for lrs, hr in data_loader.get_shuffled_copy():
                 
                 gl, dl, psnr = self.train_step_gan(lrs, hr, self.generator, self.discriminator, self.optimizer_gen, self.optimizer_discr, data_loader.batch_size, gen_train)
@@ -310,24 +320,25 @@ class SRGANTrainer:
                 gen_loss += gl
                 disc_loss += dl
                 cPSNR_loss += psnr
+                iter_ += 1.0
                 
-            disc_loss = tf.math.reduce_mean(disc_loss)
-            gen_loss = tf.math.reduce_mean(gen_loss)
-            cPSNR_loss = tf.math.reduce_mean(cPSNR_loss)
+            disc_loss = disc_loss.numpy() / iter_
+            gen_loss = gen_loss / iter_
+            cPSNR_loss = cPSNR_loss / iter_
                 
             if (epoch + 1) % 1 == 0:
                 verbose_print("Saving model", self.verbose)
                 self.model.save("Model/SRGAN/" + str(epoch) + ".hdf5")
                 
             # TODO implement LR on plateau
-            if epoch > 80:
+            if epoch > 15:
                 # Learning rate decays:
                 # lr * lr_decay_target * (epoch / max_epoch)
-                self.optimizer_gen.lr = self.optimizer_gen.lr * 0.08 ** ((epoch + 80) / (self.epochs + 80) )
-                self.optimizer_discr.lr = self.optimizer_discr.lr * 0.08 ** ((epoch + 80) / (self.epochs + 80))
+                self.optimizer_gen.lr = self.optimizer_gen.lr * 0.08 ** ((epoch + 15) / (self.epochs + 15) )
+                self.optimizer_discr.lr = self.optimizer_discr.lr * 0.08 ** ((epoch + 15) / (self.epochs + 15))
             
             
-            loss_report = 'epoch: ' + str(epoch) + ' current losses: (gen / disc) ' + str(gen_loss.numpy()) + " / " + str(disc_loss.numpy()) + " cPSNR: " + str(cPSNR.numpy())
+            loss_report = 'epoch: ' + str(epoch) + ' current losses: (gen / disc) ' + str(gen_loss) + " / " + str(disc_loss) + " cPSNR: " + str(cPSNR_loss)
                                                                              
             verbose_print(loss_report, self.verbose)
             
@@ -335,17 +346,17 @@ class SRGANTrainer:
     
     
     def discriminator_loss(self, disc_hr_output, disc_sr_output, batch_size):
-        real_loss = (tf.ones_like(disc_hr_output) - tf.random.uniform([batch_size, 1]) * 0.1) - disc_hr_output
+        real_loss = (tf.ones_like(disc_hr_output) - tf.random.uniform(disc_hr_output.shape) * 0.1) - disc_hr_output
         real_loss = tf.clip_by_value(real_loss, 0.0, 1.0)
 
-        generated_loss = tf.random.uniform([batch_size, 1]) * 0.1 + disc_sr_output
+        generated_loss = tf.random.uniform(disc_sr_output.shape) * 0.1 + disc_sr_output
 
         return 0.5 * tf.math.reduce_mean((real_loss + generated_loss))
     
     
     def generator_loss(self, disc_sr, hr, sr, batch_size, lambda_ = 100):
         # we try to trick the discriminator to predict our generated image to be considered as valid ([1])
-        gan_loss = tf.math.reduce_mean((tf.ones_like(disc_sr) - tf.random.uniform([batch_size, 1]) * 0.1) - disc_sr)
+        gan_loss = tf.math.reduce_mean((tf.ones_like(disc_sr) - tf.random.uniform(disc_sr.shape) * 0.1) - disc_sr)
         gan_loss = tf.clip_by_value(gan_loss, 0.0, 1.0)
 
         # We also want the image to look as similar as possible to the HR images
@@ -356,7 +367,8 @@ class SRGANTrainer:
     
     
     @tf.function
-    def train_step_gan(self, lrs, hr, generator, discriminator, generator_optimizer, discriminator_optimizer, batch_size, gen_train = False):
+    def train_step_gan(self, lrs, hr, generator, discriminator, generator_optimizer, discriminator_optimizer, batch_size, gen_train = True):
+        
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
 
             # Generate one batch
@@ -380,9 +392,8 @@ class SRGANTrainer:
             
             # We can optionally freeze the gen update
             if tf.equal(gen_train, True):
-                pass
-                #generator_gradients = gen_tape.gradient(gen_loss, generator.trainable_variables)
-                #generator_optimizer.apply_gradients(zip(generator_gradients, generator.trainable_variables))
+                generator_gradients = gen_tape.gradient(gen_loss, generator.trainable_variables)
+                generator_optimizer.apply_gradients(zip(generator_gradients, generator.trainable_variables))
             
             # Update weights
             discriminator_optimizer.apply_gradients(zip(discriminator_gradients, discriminator.trainable_variables))
@@ -471,6 +482,7 @@ class SR_UNETTrainer:
     
     
 if __name__ == '__main__':
+    
     parser = argparse.ArgumentParser(description="Train Super resolution models")
     parser.add_argument("--data_path", help="Number of epochs to train", type=str, default="DataTFRecords/train/")
     parser.add_argument("--model", help="Which type of model: gan | cnn", type=str, default="gan")
@@ -496,7 +508,6 @@ if __name__ == '__main__':
         'number_residual_block': 3,
         'batch_norm': False,
     }
-    
 
     if model == "gan" or model == "srgan":
         loader = MultipleDataLoader("DataTFRecords/train/", args.batch_size, False, args.augment, args.num_channel)
@@ -528,7 +539,6 @@ if __name__ == '__main__':
         trainer = SRCNNTrainer(generator_model_parameters, srcnn_model_parameters)
         
     trainer.fit(loader)
-    
     
 
 '''

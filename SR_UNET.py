@@ -11,7 +11,7 @@ class SR_UNET():
     """
     
     
-    def __init__(self, channel_dim = 35, include_batch_norm = False):
+    def __init__(self, channel_dim = 5, include_batch_norm = False):
         inputs = Input(shape=[128, 128, channel_dim])
         self.batch_norm = include_batch_norm
         self.model = self.build_model(inputs)
@@ -92,10 +92,11 @@ class SR_UNET():
         
         model = UpSampling2D(size = 3)(inputs)
         model = Conv2D(32, 3, strides=1, padding='same', kernel_initializer='he_normal')(model)
-        #model = LeakyReLU(alpha = 0.2)(model)
         if self.batch_norm:
             model = BatchNormalization()(model)
         model = Conv2D(64, 3, strides=1, padding='same', kernel_initializer='he_normal')(model)
+        model = Conv2D(64, 3, strides=1, padding='same', kernel_initializer='he_normal')(model)
+        model = LeakyReLU(alpha = 0.2)(model)
         
         skip_head = model
         
@@ -113,14 +114,17 @@ class SR_UNET():
         model = self.up_sample_block(model, 3, 128, 1, size=2, skip=skip_1)
         model = self.up_sample_block(model, 3, 64, 1, size=2, skip=skip_0)
         
-        model = Conv2D(filters = 1, kernel_size = 3, strides = 1, padding = "same")(model)
-        
         if self.batch_norm:
             model = BatchNormalization()(model)
             
         model = Add()([model, skip_head])
+        
         model = Conv2D(64, kernel_size = 3, strides = 1, padding = "same", kernel_initializer='he_normal')(model)
+        model = Conv2D(64, kernel_size = 3, strides = 1, padding = "same", kernel_initializer='he_normal')(model)
+        model = LeakyReLU(alpha = 0.2)(model)
         model = Conv2D(32, kernel_size = 3, strides = 1, padding = "same", kernel_initializer='he_normal')(model)
+        model = Conv2D(32, kernel_size = 3, strides = 1, padding = "same", kernel_initializer='he_normal')(model)
+        model = LeakyReLU(alpha = 0.2)(model)
         
         if self.batch_norm:
             model = BatchNormalization()(model)

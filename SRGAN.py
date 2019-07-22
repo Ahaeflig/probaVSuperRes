@@ -5,7 +5,7 @@ from tensorflow import keras
 
 class SRGAN():
     
-    def __init__(self, generator_model, channel_dim = 35, include_batch_norm = False):
+    def __init__(self, generator_model, channel_dim = 5, include_batch_norm = False):
         
         gen_input = tf.keras.layers.Input(shape=[128, 128, channel_dim])
         self.batch_norm = include_batch_norm
@@ -78,7 +78,9 @@ class SRGAN():
         model = self.discriminator_block(model, 128, 3, 2, self.batch_norm)
         model = self.discriminator_block(model, 256, 3, 2, self.batch_norm)
         
+        model = tf.keras.layers.GlobalAveragePooling2D()(model)
         model = Flatten()(model)
+        
         model = Dense(128)(model)
         model = LeakyReLU(alpha = 0.2)(model)
         
