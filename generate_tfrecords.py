@@ -23,10 +23,12 @@ import tensorflow as tf
 import argparse
 
 
-def save_scene(scene_path, normalize_lrs:bool, normalize_hr: bool, top_k: bool, k: int):
+def save_scene(scene_path, normalize_lrs:bool, normalize_hr: bool, top_k: bool, k: int, filler: bool):
     
-    # todo make param
-    data_destination = "DataNormalized"
+    if top_k
+        data_destination = "TFRecords_" + str(k)
+    else:
+        data_destination = "TFRecords_all"
     
     new_path = data_destination + "/" + "/".join(scene_path.split("/")[1:])
     os.makedirs(new_path, exist_ok=True)
@@ -76,7 +78,8 @@ def save_scene(scene_path, normalize_lrs:bool, normalize_hr: bool, top_k: bool, 
             idx = idx % len(lr_qms)
         
         # Add one median lr
-        lrs.append(lr_filler)
+        if filler:
+            lrs.append(lr_filler)
         
         # Shuffle LRS?
         # random.shuffle(lrs)
@@ -109,11 +112,6 @@ def array_to_tfrecords_multiple(lrs, hr, output_file):
     writer.close()
     
 
-def mergeAndUpscale(scene_path):
-    merged = central_tendency(scene_path, agg_with='median', only_clear=False)
-    return bicubic_upscaling(merged)
-
-
 def normalize(image):
     return (image - image.min()) / (image.max() - image.min())
 
@@ -137,7 +135,7 @@ def load_and_normalize_lrs(scene_path):
     return normalized_lrs
 
 
-def main(data_path: str, normalize_lrs: bool,  normalize_hr: bool, top_k: bool, k: int):
+def main(data_path: str, normalize_lrs: bool,  normalize_hr: bool, top_k: bool, k: int, filler: bool):
 
     print("Getting data from " + data_path)
     print("normalize lr: " + str(normalize_lrs))
@@ -159,7 +157,7 @@ def main(data_path: str, normalize_lrs: bool,  normalize_hr: bool, top_k: bool, 
             
     for scene in train + test:
         #print("saving scene " + scene)
-        save_scene(scene, normalize_lrs, normalize_hr, top_k, k)
+        save_scene(scene, normalize_lrs, normalize_hr, top_k, k, filler)
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate TFRecords from the ProbaV Data")
@@ -168,9 +166,10 @@ if __name__ == '__main__':
     parser.add_argument("-norm_hr", "--normalize_hr", help="enabling HR normalization (not recommneded)", action="store_true")
     parser.add_argument("--top_k", help="Enable topK LR filling instead of mean filling", action="store_true")
     parser.add_argument("--k", help="Number of top K filter to include", type=int, default=35)
+    parser.add_argument("--filler", help="include median LRs to top k", action="store_true")
     
     # shuffle LR
     args = parser.parse_args()
-    main(args.data_dir, args.normalize_lrs, args.normalize_hr, args.top_k, args.k)
+    main(args.data_dir, args.normalize_lrs, args.normalize_hr, args.top_k, args.k, args.filler)
     
     

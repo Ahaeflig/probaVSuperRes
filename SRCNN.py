@@ -1,6 +1,8 @@
 from tensorflow.keras.layers import Conv2D, LeakyReLU, BatchNormalization, Activation, Flatten, Dense, Input, Add, UpSampling2D
 import tensorflow as tf
 
+from ops import residual_block_gen, up_sample_block
+
 class SRCNN():
     """ Defines a DL model for Super Resolution that uses a residual blocks and an up sampling block to super resolve multiple low resolution images stacked together
     
@@ -19,53 +21,6 @@ class SRCNN():
         self.model = self.build_model(inputs)
         self.name = "ResidualCNN"
         
-    
-    @staticmethod
-    def residual_block_gen(model, kernel_size, filters, strides, batch_norm):
-        """ ResNet residual block a bit modified with a LeakyReLU and no activation function after the additon
-        
-            Args:
-                model: the current model
-                kernel_size: size of the kernel used for convolutions
-                filters: last dimension of the output
-                strides: shift amount between each convolution
-        """
-        
-        previous = model
-
-        model = Conv2D(filters, kernel_size, strides=strides, padding='same', kernel_initializer='he_normal')(model)
-        
-        if batch_norm:
-            model = BatchNormalization()(model)
-            
-        model = LeakyReLU(alpha = 0.2)(model)
-        model = Conv2D(filters, kernel_size, strides=strides, padding='same', kernel_initializer='he_normal')(model)
-        
-        if batch_norm:
-            model = BatchNormalization()(model)
-
-        return Add()([previous, model])
-    
-    
-    @staticmethod
-    def up_sample_block(model, kernel_size, filters, strides):
-        """ Up Sample block based on Convolution, LeakyRelu and UpSampling2D (repeats the rows and columns)
-        
-            Args:
-                model: the current model
-                kernel_size: size of the kernel used for convolutions
-                filters: last dimension of the output
-                strides: shift amount between each convolution
-        """
-        
-        model = Conv2D(filters, kernel_size, strides, padding = "same", kernel_initializer='he_normal')(model)
-        model = LeakyReLU(alpha = 0.2)(model)
-        model = UpSampling2D(size = 3)(model)
-        model = Conv2D(filters, kernel_size, strides, padding = "same", kernel_initializer='he_normal')(model)
-        model = LeakyReLU(alpha = 0.2)(model)
-
-        return model
-    
     
     def build_model(self, inputs):
         """ Builds the model with all the pieces put together:
@@ -97,7 +52,7 @@ class SRCNN():
         skip_connection = model
         
         for i in range(self.number_residual_block):
-            model = self.residual_block_gen(model, 3, 128, 1, self.batch_norm)
+            model = residual_block_gen(model, 3, 128, 1, self.batch_norm)
 
         model = Conv2D(filters = 128, kernel_size = 3, strides = 1, padding = "same")(model)
         model = LeakyReLU(alpha = 0.2)(model)
@@ -107,8 +62,8 @@ class SRCNN():
             
         model = Add()([model, skip_connection])
         
-        # Upsample
-        model = self.up_sample_block(model, 3, 128, 1)
+        # Upsample, TODO check if skipping improves performance
+        model = up_sample_block(model, 3, 128, 1, size=3, skip=None)
         
         model = Conv2D(filters = 128, kernel_size = 3, strides = 1, padding = "same")(model)
         model = Conv2D(filters = 64, kernel_size = 3, strides = 1, padding = "same")(model)
