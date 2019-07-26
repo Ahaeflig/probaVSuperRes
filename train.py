@@ -12,11 +12,12 @@ from data_loader import MultipleDataLoader
 # Import models
 from SRGAN import SRGAN
 from SRCNN import SRCNN
-from SR_UNET import SR_UNET
 
 from enum import Enum
 
 from losses import Losses
+
+import random
 
 import os
 
@@ -106,7 +107,7 @@ class SRCNNTrainer:
         checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, monitor='train_loss', verbose=0, save_best_only=False, save_weights_only=False, mode='auto', save_freq='epoch')
             
         # Reduce LR callback
-        reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.8, patience=2, cooldown=1, verbose=self.verbose)
+        reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='loss', factor=0.5, patience=1, cooldown=0, verbose=self.verbose)
         
         callbacks_list = [checkpoint, reduce_lr]
         
@@ -135,8 +136,9 @@ class SRGANTrainer:
         self.optimizer_gen = training_params["optimizer_gen"]
         self.lr_gen_decay = training_params["lr_gen_decay"]
         self.optimizer_discr = training_params["optimizer_discr"]
+        self.invert_prob = training_params.get("invert_prob", 0.05)
         self.verbose = training_params["verbose"]
-        self.pretrained_generator_path = training_params["pretrained_generator_path"]
+        self.pretrained_generator_path = training_params.get("pretrained_generator_path", "")
         
         self.model_path = ""
         if "model_path" in training_params:
@@ -167,10 +169,12 @@ class SRGANTrainer:
                 # Get model weights
                 custom_object = {'custom_loss': SRCNNTrainer.custom_loss, 'cPSNR_metric': Losses.cPSNR_metric}
                 pre_train = keras.models.load_model(self.pretrained_generator_path, custom_objects=custom_object, compile=False)
+                
                 pre_train.save_weights("gen_weights.h5")
                 
                 # Load model weights
                 generator.load_weights("gen_weights.h5")
+                os.remove("gen_weights.h5")
 
             srgan = SRGAN(generator, channel_dim=self.channel_dim, include_batch_norm = self.batch_norm)
             self.generator = srgan.generator
@@ -217,6 +221,7 @@ class SRGANTrainer:
             cPSNR_loss = 0.0
             
             iter_ = 1.0
+            # todo take 5
             for lrs, hr in data_loader.get_shuffled_copy():
                 
                 gl, dl, psnr = self.train_step_gan(lrs, hr, self.generator, self.discriminator, self.optimizer_gen, self.optimizer_discr, data_loader.batch_size, gen_train)
@@ -278,12 +283,20 @@ class SRGANTrainer:
             
             metric = Losses.cPSNR(hr_, sr_)
 
+            disc_hr = discriminator(hr_, training = True)
+            disc_sr = discriminator(sr_, training = True)
+            
+            # ref two swap only for discriminator
+            discr_hr_for_discr = disc_hr
+            discr_sr_for_discr = disc_sr
+             
             # Compute discriminator predictions on real and generated images
-            disc_hr = discriminator(hr_, training=True)
-            disc_sr = discriminator(sr_, training=True)
-
+            # We swap hr and sr with a small probability to bother the discriminator
+            if random.random() < self.invert_prob:
+                discr_hr_for_discr, discr_sr_for_discr = discr_sr_for_discr, discr_hr_for_discr
+            
             # Computes losses
-            disc_loss = self.discriminator_loss(disc_hr, disc_sr, batch_size)
+            disc_loss = self.discriminator_loss(discr_hr_for_discr, discr_sr_for_discr, batch_size)
             gen_loss = self.generator_loss(disc_sr, hr_, sr_, batch_size)
 
             # We compute gradients
@@ -300,13 +313,11 @@ class SRGANTrainer:
         return gen_loss, disc_loss, metric
     
     
-    
 '''
 ==============================
             Main
 ==============================
 '''
-    
     
 if __name__ == '__main__':
     

@@ -74,3 +74,56 @@ def down_sample_block(model, kernel_size, filters, batch_norm):
     
     
     
+"""""""""""
+===========
+ Attention
+===========
+"""""""""""
+
+
+# Per pixel attention
+def residual_attention_block(model, batch_norm):
+    
+    model = residual_block_gen(model, 3, 64, 1, batch_norm)
+    model = residual_block_gen(model, 3, 64, 1, batch_norm)
+    
+    mask = model
+    
+    # Trunk branch:
+    model = residual_block_gen(model, 3, 64, 1, batch_norm)
+    model = residual_block_gen(model, 3, 64, 1, batch_norm)
+    model = residual_block_gen(model, 3, 64, 1, batch_norm)
+    
+    # Mask
+    # Down
+    mask, skip0 = down_sample_block(mask, 3, 64, batch_norm)
+    mask, skip1 = down_sample_block(mask, 3, 128, batch_norm)
+    mask, skip2 = down_sample_block(mask, 3, 256, batch_norm)
+    
+    # Up
+    mask = up_sample_block(mask, 3, 256, 1, size=2, skip=skip2)
+    mask = up_sample_block(mask, 3, 128, 1, size=2, skip=skip1)
+    mask = up_sample_block(mask, 3, 64, 1, size=2, skip=skip0)
+        
+    #mask = tf.keras.layers.GlobalAveragePooling2D()(mask)
+    
+    # Generate mask
+    mask = tf.keras.layers.Sigmoid()(model)
+        
+    trunk = model
+    
+    # TODO test multiplying by QM here
+    model = tf.math.multiply(model, mask)
+    model = Add()([trunk, model])
+    
+    model = residual_block_gen(model, 3, 64, 1, batch_norm)
+    model = residual_block_gen(model, 3, 64, 1, batch_norm)
+        
+
+
+        
+        
+        
+    
+    
+    
